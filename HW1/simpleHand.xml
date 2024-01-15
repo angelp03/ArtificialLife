@@ -1,0 +1,54 @@
+<mujoco model="jumping_entity">
+    <option gravity = '0 0 -9.81'/> 
+    <worldbody>
+        <light diffuse = '.5 .5 .5' pos = '0 0 6' dir = '0 0 -1'/>
+        <geom type = 'plane' size = '5 5 0.1' rgba = '1 1 1 1'/>
+        <body name = 'main' pos = '0 0 1'>
+            <joint type = 'free'/>
+            <geom type = 'box' size = '1 .5 1'/>
+            <body name = 'finger1' pos = '-0.75 -.25 1.3'>
+                <joint type = 'hinge' name = 'finger-joint-1' axis = '1 0 0' range="0 55"/>
+                <geom type = 'box' size = '.2 .2 .7' rgba = '150 75 0 1'/>
+                <body name = 'fingertip1' pos = '0 .1 1'>
+                    <joint type = 'hinge' name = 'finger-point-1' axis = '1 0 0' range = '0 45'/>
+                    <geom type = 'box' size = '.15 .15 .4' rgba = '150 75 0 1'/>
+                </body>
+            </body>
+            <body name = 'finger2' pos = '0 -.25 1.3'>
+                <joint type = 'hinge' name = 'finger-joint-2' axis = '1 0 0' range="0 55"/>
+                <geom type = 'box' size = '.2 .2 .7' rgba = '255 60 0 1'/>
+                <body name = 'fingertip2' pos = '0 .1  1'>
+                    <joint type = 'hinge' name = 'finger-point-2' axis = '1 0 0' range = '0 45'/>
+                    <geom type = 'box' size = '.15 .15 .4' rgba = '150 75 0 1'/>
+                </body>
+            </body>
+            <body name = 'finger3' pos = '0.75 -.25 1.3'>
+                <joint type = 'hinge' name = 'finger-joint-3' axis = '1 0 0' range="0 55"/>
+                <geom type = 'box' size = '.2 .2 .7' rgba = '255 60 0 1'/>
+                <body name = 'fingertip3' pos = '0 .1 1'>
+                    <joint type = 'hinge' name = 'finger-point-3' axis = '1 0 0' range = '0 45'/>
+                    <geom type = 'box' size = '.15 .15 .4' rgba = '150 75 0 1'/>
+                </body>
+            </body>
+            <body name = 'thumb' pos = '1.2 -.3 0' euler = '0 90 0'>
+                <joint type = 'hinge' name = 'thumb-joint' axis = '1 0 0' range = '0 90'/>
+                <geom type = 'box' size = '.2 .2 .6'  rgba = '150 75 0 1'/>
+                <body pos = '0 -.1 .8'>
+                    <joint type = 'hinge' name = 'thumb-point' axis = '1 0 0' range = '0 75'/>
+                    <geom type = 'box' size = '.15 .15 .4' rgba =  '150 75 0 1'/>
+                </body>
+            </body>
+        </body>
+        
+    </worldbody>
+    <actuator>
+        <motor name = 'finger-1' joint = 'finger-joint-1'/>
+        <motor name = 'finger-point-1' joint = 'finger-point-1'/>
+        <motor name = 'finger-2' joint = 'finger-joint-2'/>
+        <motor name = 'finger-point-2' joint = 'finger-point-2'/>
+        <motor name = 'finger-3' joint = 'finger-joint-3'/>
+        <motor name = 'finger-point-3' joint = 'finger-point-3'/>
+        <motor name = 'thumb' joint = 'thumb-joint'/>
+        <motor  name = 'thumb-point' joint = 'thumb-point'/>
+    </actuator>
+</mujoco>
