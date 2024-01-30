@@ -1,4 +1,4 @@
-<mujoco model="jumping_entity">
+<mujoco model="simple-hand-model">
     <option gravity = '0 0 -9.81'/> 
     <worldbody>
         <light diffuse = '.5 .5 .5' pos = '0 0 6' dir = '0 0 -1'/>
