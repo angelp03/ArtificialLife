@@ -3,6 +3,7 @@ import mujoco_viewer
 import numpy as np
 import random
 
+#Defining graph class and functions
 class Graph:
     def __init__(self):
         self.graph = {}
@@ -66,12 +67,13 @@ segs = random.randrange(1,5)
 #XML string for limbs
 limbsXML = ""
 
+#XML string for joint motors
 motorXML = ""
 
 #Track index in posn array
 posnIndex = 0
 
-#Add edges from body to limbs
+#Add edges from body to limbs and build limbs XML
 for i in range(limbs):
     entityGraph.add_vertex(i+1)
     entityGraph.add_edge(0,i+1)
@@ -91,21 +93,26 @@ for i in range(limbs):
     motorXML += motor.format(f"motor-limb-{i+1}", i+1)
     posnIndex += 1
 
-xml = xml.format(sphere+limbsXML, actuatorXML.format(motorXML))
+#Format xml string
+jumpingXML = xml.format(sphere+limbsXML, actuatorXML.format(motorXML))
+
+#Display corresponding genotype graph
+#Note: Edge to self represents 1 additional segmentation
 entityGraph.display()
 
-
-# Make model and data
-model = mujoco.MjModel.from_xml_string(xml)
+#Make model and data
+model = mujoco.MjModel.from_xml_string(jumpingXML)
 data = mujoco.MjData(model)
 
-# Make viewer
+#Make viewer
 viewer = mujoco_viewer.MujocoViewer(model, data)
 
-# Get array of actuators
+#Get array of actuators
 actuators = model.nu
 
-velocities = np.array([1000 for i in range(limbs)])
+#Create list of velocities for corresponding limb motors
+velocities = np.array([500*segs for i in range(limbs)])
+
 for i in range(10000):
     if viewer.is_alive:
         if np.all(np.abs(data.qvel) < 0.01) and i%50:
