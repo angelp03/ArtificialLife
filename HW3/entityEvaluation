@@ -50,39 +50,59 @@ actuatorXML = """
     <actuator>
         {}
     </actuator>"""
+    
 
-#Possible limb positions and rotations - currently hardcoded
-posn = [(0.5,0,0,0,0,-90), (-0.5,0,0,0,0,90), (0,0.5,0,0,0,0), (0,-0.5,0,0,0,180)]
+# Initial generation developed through randomized graphs
+# 
 
-#Initialize graph and add 0 index value corresponding to body
-entityGraph = Graph()
-entityGraph.add_vertex(0)
+# Generate randomized posns for initial generations of models
+def generate_posn ():
+    x = random.randrange(0,2, 0.1)
+    y = random.randrange(0,2, 0.1)
+    z = random.randrange(0,2, 0.1)
+    return (x,y,z)
 
-#Select a random number of models that compete
-models = random.randrange(2,4)
-
-modelArray = []
-maxIndex = -1
-absMaxHeight = 0
-for z in range(models):
-    #Select a random number of limbs to generate on body
-    limbs = random.randrange(2,5)
-
-    #Select random number of segments per limb
-    segs = random.randrange(1,5)
+# Generate xml string based on graph
+def generate_xml(graph):
     #XML string for limbs
     limbsXML = ""
 
     #XML string for joint motors
     motorXML = ""
 
+#Possible limb positions and rotations - currently hardcoded
+posn = [(0.5,0,0,0,0,-90), (-0.5,0,0,0,0,90), (0,0.5,0,0,0,0), (0,-0.5,0,0,0,180)]
+
+#Select a random number of models that compete
+models = random.randrange(2,4)
+
+modelArray = []
+maxIndex = -1
+maxRatio = -1
+
+# Convert this as a way to build models from graph rather than simultaneous
+for z in range(models):
+    #Initialize graph and add 0 index value corresponding to body
+    entityGraph = Graph()
+    entityGraph.add_vertex(0)
+    #Select a random number of limbs to generate on body
+    limbs = random.randrange(2,5)
+    
+    #Select random number of segments per limb
+    segs = random.randrange(1,5)  
+
+    #XML string for limbs
+    limbsXML = ""
+
+    #XML string for joint motors
+    motorXML = ""
     #Track index in posn array
     posnIndex = 0
 
     #Add edges from body to limbs and build limbs XML
     for i in range(limbs):
         entityGraph.add_vertex(i+1)
-        entityGraph.add_edge(0,i+1)
+        entityGraph.add_edge(0,i+1)      
         segXML = ''
         #Create hierarchy of limb segments
         for j in range(segs):
@@ -101,7 +121,7 @@ for z in range(models):
 
     #Format xml string
     jumpingXML = xml.format(sphere+limbsXML, actuatorXML.format(motorXML))
-    modelArray.append(jumpingXML)
+    modelArray.append(entityGraph)
 
     #Display corresponding genotype graph
     #Note: Edge to self represents 1 additional segmentation
@@ -121,25 +141,32 @@ for z in range(models):
     velocities = np.array([500*segs for i in range(limbs)])
     jump = False
     maxHeight = 0
-
+    heightOffset = 0
     for i in range(10000):
         if viewer.is_alive:
             if np.all(np.abs(data.qvel) < 0.01) and i%50:
+                # Consider the starting position of the model, takes into account length of limbs
+                if heightOffset == 0:
+                    heightOffset = data.qpos[2]
                 data.ctrl[:actuators] = velocities
                 jump = True
                 velocities*=-1
             else:
                 if jump == True:
                     # tracks the max height of the model
-                    maxHeight = max(maxHeight, data.qpos[2])
-            print(maxHeight)
+                    if data.qpos[2] < maxHeight:
+                        break
+                    else:
+                        maxHeight = max(maxHeight, data.qpos[2])
             mujoco.mj_step(model, data)
             viewer.render()
         else:
             break
-    if maxHeight > absMaxHeight:
-        absMaxHeight == maxHeight
+    # Fitness is the proportion of maximum height in relation to starting position
+    if float(maxHeight/heightOffset) > maxRatio:
+        maxRatio = float(maxHeight/heightOffset)
         maxIndex = z
     viewer.close()
-
-print(maxIndex)
+    print(maxHeight, heightOffset)
+    print(maxRatio)
+modelArray[maxIndex].display()
