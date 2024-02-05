@@ -38,14 +38,18 @@ xml = """
 """
 
 #XML Components
+generic_geom = """<geom type='{}' size='{}' mass='{}'/>"""
+generic_joint = """<joint type='{}' name='{}' axis='{}' range='{}'/>"""
+motor = "<motor name ='{}' joint='{}'/>"
+
 box = """<geom type="box" size=".1 .2 .1" rgba="1 0 0 1"/>"""
 sphere = """<geom type="sphere" size=".3" rgba="0 1 0 1" mass='0.1'/>"""
 joint = """<joint type='{}' name='{}'  axis = '-1 0 0' range = '0 35'/>"""
+
 body = """
         <body name = '{}' pos='{}' euler='{}'> 
             {}
         </body>"""
-motor = "<motor name ='{}' joint='{}'/>"
 actuatorXML = """
     <actuator>
         {}
@@ -66,9 +70,9 @@ def generate_posn ():
 def generate_xml(graph):
     #XML string for limbs
     limbsXML = ""
-
     #XML string for joint motors
     motorXML = ""
+    
 
 #Possible limb positions and rotations - currently hardcoded
 posn = [(0.5,0,0,0,0,-90), (-0.5,0,0,0,0,90), (0,0.5,0,0,0,0), (0,-0.5,0,0,0,180)]
