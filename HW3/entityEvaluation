@@ -148,10 +148,9 @@ for z in range(models):
         else:
             break
     # Fitness is the proportion of maximum height in relation to starting position
-    if float(maxHeight/heightOffset) > maxRatio:
-        maxRatio = float(maxHeight/heightOffset)
+    if float((maxHeight-heightOffset)/heightOffset) > maxRatio:
+        maxRatio = float((maxHeight-heightOffset)/heightOffset)
         maxIndex = z
     viewer.close()
-    print(maxHeight, heightOffset)
-    print(maxRatio)
+print(maxRatio)
 modelArray[maxIndex].display()
