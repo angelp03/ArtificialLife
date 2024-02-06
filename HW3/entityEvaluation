@@ -55,21 +55,6 @@ actuatorXML = """
 # Initial generation developed through randomized graphs
 # 
 
-# Generate randomized posns for initial generations of models
-def generate_posn ():
-    x = random.randrange(0,2, 0.1)
-    y = random.randrange(0,2, 0.1)
-    z = random.randrange(0,2, 0.1)
-    return (x,y,z)
-
-# Generate xml string based on graph
-def generate_xml(graph):
-    #XML string for limbs
-    limbsXML = ""
-
-    #XML string for joint motors
-    motorXML = ""
-
 #Possible limb positions and rotations - currently hardcoded
 posn = [(0.5,0,0,0,0,-90), (-0.5,0,0,0,0,90), (0,0.5,0,0,0,0), (0,-0.5,0,0,0,180)]
 
