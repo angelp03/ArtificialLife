@@ -168,7 +168,7 @@ maxRatio = -1
 creature_uid = 0
 
 # Convert this as a way to build models from graph rather than simultaneous
-for z in range(1):
+for z in range(random.randrange(3,6)):
     #Initialize graph and add 0 index value corresponding to body
     entityGraph = Graph()
     entityGraph.add_vertex(0)
@@ -209,7 +209,6 @@ for z in range(1):
     #Format xml string
     jumpingXML = xml.format(sphere+limbsXML, actuatorXML.format(motorXML))
     population.add_creature(Creature(creature_uid, jumpingXML, entityGraph, posn))
-    child = generate_xml(creature_uid, population)
     creature_uid += 1
 
     #Display corresponding genotype graph
@@ -218,7 +217,7 @@ for z in range(1):
     
 
     #Make model and data
-    model = mujoco.MjModel.from_xml_string(child)
+    model = mujoco.MjModel.from_xml_string(jumpingXML)
     data = mujoco.MjData(model)
 
     #Make viewer
@@ -253,10 +252,9 @@ for z in range(1):
         else:
             break
     # Fitness is the proportion of maximum height in relation to starting position
-    if float(maxHeight/heightOffset) > maxRatio:
-        maxRatio = float(maxHeight/heightOffset)
+    if float((maxHeight-heightOffset)/heightOffset) > maxRatio:
+        maxRatio = float((maxHeight-heightOffset)/heightOffset)
         maxIndex = z
     viewer.close()
-    print(maxHeight, heightOffset)
     print(maxRatio)
-population.get_creature(maxIndex).display()
+print ("Best fitness levels: " + population.get_creature(maxIndex).get_graph().display())
