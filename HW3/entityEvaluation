@@ -7,10 +7,12 @@ import random
 class Graph:
     def __init__(self):
         self.graph = {}
+        self.length = 0
 
     def add_vertex(self, vertex):
         if vertex not in self.graph:
             self.graph[vertex] = []
+            self.length += 1
 
     def add_edge(self, from_vertex, to_vertex):
         if from_vertex in self.graph and to_vertex in self.graph:
@@ -19,7 +21,50 @@ class Graph:
     def display(self):
         for vertex in self.graph:
             print(f"{vertex}: {self.graph[vertex]}")
-            
+
+    def get_length(self):
+        return self.length
+        
+    def get_edges (self, vertex):
+        return self.graph[vertex]
+
+#Defining creature class and functions
+class Creature:
+    def __init__(self, uid, xml, graph, posns):
+        self.id = uid
+        self.xml = xml
+        self.graph = graph
+        self.posns = posns
+
+    def get_id(self):
+        return self.id
+
+    def get_xml (self):
+        return self.xml
+    
+    def get_posns (self):
+        return self.posns
+    
+    def get_graph(self):
+        return self.graph
+    
+    def display(self):
+        print( self.id, self.xml, self.graph)
+
+#Defining population class and functions
+class Population:
+    def __init__(self):
+        self.population = set()
+        
+    def add_creature(self, creature):
+        if creature not in self.population:
+            self.population.add(creature)
+    
+    def get_creature(self, uid):
+        for creature in self.population:
+            if creature.get_id() == uid:
+                return creature
+    
 
 #Mutable XML template
 xml = """
@@ -67,12 +112,48 @@ def generate_posn ():
     return (x,y,z)
 
 # Generate xml string based on graph
-def generate_xml(graph):
+def generate_xml(id, population):
+    parentCreature = population.get_creature(id)
+    parentGraph = parentCreature.get_graph()
+    parentPosns = parentCreature.get_posns()
+    print(parentPosns)
+    parentLength = parentGraph.get_length()
     #XML string for limbs
     limbsXML = ""
     #XML string for joint motors
     motorXML = ""
-    
+    limbs = 1
+    segs = 1
+    posnIndex = 0
+    for i in range(parentLength):
+        edges = parentGraph.get_edges(i)
+        if len(edges) > 0:
+            limbs += len([x for x in edges if x != i])
+            if i != 0:
+                segs += len([j for j in edges if j != i])
+    for i in range(limbs):
+        entityGraph.add_vertex(i+1)
+        entityGraph.add_edge(0,i+1)      
+        segXML = ''
+        #Create hierarchy of limb segments
+        for j in range(segs):
+            entityGraph.add_edge(i+1, i+1)
+            if j == 0:
+                segXML = body
+            if j != segs-1:
+                segXML = segXML.format(f"limb{i}-seg-{j}", "0 .2 -.1", f"{(-90/segs)} 0 0", box+body)
+            else:
+                segXML = segXML.format(f"limb{i}-seg-{j}", "0 .2 -.1", f"{(-90/segs)} 0 0", box)
+        limbsXML += body.format(f"limb-{i+1}", f"{parentPosns[posnIndex][0]} {parentPosns[posnIndex][1]} {parentPosns[posnIndex][2]}",
+                            f"{parentPosns[posnIndex][3]} {parentPosns[posnIndex][4]} {parentPosns[posnIndex][5]}", 
+                            joint.format('hinge', i+1)+box+segXML)
+        motorXML += motor.format(f"motor-limb-{i+1}", i+1)
+        posnIndex += 1
+
+    #Format xml string
+    jumpingXML = xml.format(sphere+limbsXML, actuatorXML.format(motorXML))
+    population.add_creature(Creature(creature_uid, jumpingXML, entityGraph, posn))
+    return jumpingXML
 
 #Possible limb positions and rotations - currently hardcoded
 posn = [(0.5,0,0,0,0,-90), (-0.5,0,0,0,0,90), (0,0.5,0,0,0,0), (0,-0.5,0,0,0,180)]
@@ -80,12 +161,14 @@ posn = [(0.5,0,0,0,0,-90), (-0.5,0,0,0,0,90), (0,0.5,0,0,0,0), (0,-0.5,0,0,0,180
 #Select a random number of models that compete
 models = random.randrange(2,4)
 
+population = Population()
 modelArray = []
 maxIndex = -1
 maxRatio = -1
+creature_uid = 0
 
 # Convert this as a way to build models from graph rather than simultaneous
-for z in range(models):
+for z in range(random.randrange(3,6)):
     #Initialize graph and add 0 index value corresponding to body
     entityGraph = Graph()
     entityGraph.add_vertex(0)
@@ -125,11 +208,13 @@ for z in range(models):
 
     #Format xml string
     jumpingXML = xml.format(sphere+limbsXML, actuatorXML.format(motorXML))
-    modelArray.append(entityGraph)
+    population.add_creature(Creature(creature_uid, jumpingXML, entityGraph, posn))
+    creature_uid += 1
 
     #Display corresponding genotype graph
     #Note: Edge to self represents 1 additional segmentation
     entityGraph.display()
+    
 
     #Make model and data
     model = mujoco.MjModel.from_xml_string(jumpingXML)
@@ -167,10 +252,9 @@ for z in range(models):
         else:
             break
     # Fitness is the proportion of maximum height in relation to starting position
-    if float(maxHeight/heightOffset) > maxRatio:
-        maxRatio = float(maxHeight/heightOffset)
+    if float((maxHeight-heightOffset)/heightOffset) > maxRatio:
+        maxRatio = float((maxHeight-heightOffset)/heightOffset)
         maxIndex = z
     viewer.close()
-    print(maxHeight, heightOffset)
     print(maxRatio)
-modelArray[maxIndex].display()
+print ("Best fitness levels: " + population.get_creature(maxIndex).get_graph().display())
