@@ -20,14 +20,12 @@ xmlTemplate = """
 </mujoco>
 """
 
-motorTemplate = """<motor name = {} joint ={}/> 
-                    {}"""
+motorTemplate = """<motor name = {} joint ={}/>"""
 
 bodyTemplate = """
         <body name = '{}' pos='{}' euler='{}'> 
             {}
-        </body>
-        {}"""
+        </body>"""
 
 geomTemplate = """<geom type='{}' size='{}'/>"""
 
@@ -36,6 +34,8 @@ jointTemplate = """<joint type='{}' name='{}' axis='{}' range='{}'/>"""
 bodyTypes = ["sphere", "box"]
 geomTypes = ["box", "capsule", "cylinder"]
 
+posn = [(0.5,0,0,0,0,-90), (-0.5,0,0,0,0,90), (0,0.5,0,0,0,0), (0,-0.5,0,0,0,180)]
+
 def generateGeom (type: str):
     if type == "sphere":
         return geomTemplate.format(type, f"{1}")
@@ -43,7 +43,6 @@ def generateGeom (type: str):
         return geomTemplate.format(type, f"{1} {1}")
     elif type == "box":
         return geomTemplate.format(type, f"{1} {1} {1}")
-
 
 # Make a simulation class in order to generate, store, and load based on unique seed
 class Simulation:
@@ -59,15 +58,31 @@ class Simulation:
             # Set unique seed for population
             np.random.seed(self.seed)
             for model in range(np.random.randint(4,7)): # Generate random number of starting parents
-                body = generateGeom(np.random.choice(bodyTypes))
+                bodyShape = np.random.choice(bodyTypes)
+                body = generateGeom(bodyShape)
+                rootNode = Node("body", bodyShape, f"1 1 1", euler=None, size=None)
                 limbs = ''
+                motor = ''
                 for limb in range(np.random.randint(2,5)): # Generate random number of limb
-                    limbs += bodyTemplate #Add body for limb
-                    limbs.format("name", f"{0} {0} {0}",generateGeom(np.random.choice(geomTypes)), "")
+                    limbShape = np.random.choice(geomTypes)
+                    limbs += bodyTemplate # Need to fill name, pos, euler, and values inside body
+                    limbNode = Node("limb", limbShape, f"0 0 0", euler=None, size=None) #Make limb node
+                    # limbs ALWAYS jointed
+                    limbBody = generateGeom(limbShape)
+                    limbBody += jointTemplate.format('hinge', f"limb{limb}", "-1 0 0", "0 35")
+                    segments = ''
+                    for segmentation in range(np.ranodm.randint(0,5)): # Generate random number of segments per limb
+                        segShape = np.random.choice(geomTypes)
+                        segNode = Node("segment", segShape, f'0 0 0', euler=None, size=None)
+                        segments += bodyTemplate  # Need to fill name, pos, euler, and values inside body
+                        jointBool = np.random.choice([True, False])
+                        limbNode.add_child(segNode, jointBool)
+                    limbBody += segments
+                    limbs.format("name", f"{0} {0} {0}", "0 0 0", limbBody)
+                    motor += motorTemplate.format("name", "joint_name")
+                    rootNode.add_child(limbNode, True)
                 body += bodyTemplate.format("name", f"{0} {0} {0}", f"{0} {0} {90}", limbs, "")
-
-
-
+                self.population.append(rootNode)
         pass
     # This can be done within the simulation class or can create a seperate function that takes simulation class as input
     def run_generation(self):
@@ -104,9 +119,9 @@ class Node:
         self.size = size # What is the size of the object
         self.edges = [] # What other objects stem from this object
     
-    def add_child(self, child,position=None, euler=None, jointed=True, jointPosition=None, jointType=None):
+    def add_child(self, child,  jointed=True, jointPosition=None, jointType=None):
         self.children.append(child) # Add child to node
-        edge_info = {'child': child, 'jointed':jointed, 'position': position, 'euler': euler} # Include important information for connections between nodes
+        edge_info = {'child': child, 'jointed':jointed} # Include important information for connections between nodes
         if jointed:
             edge_info['jointPosition'] = jointPosition # If joint is shared between objets include position
             edge_info['jointType'] = jointType # Include type of joint
