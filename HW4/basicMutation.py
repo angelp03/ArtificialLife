@@ -66,7 +66,6 @@ class Simulation:
                 rootNode = Node("body", bodyShape, f"1 1 1", euler=None, size=None)
                 limbs = '' # Body + limbs should be final insertion
                 motor = '' # Track all the motors for joints
-                print(body)
                 for limb in range(np.random.randint(2,5)): # Generate random number of limbs
                     limbShape = np.random.choice(geomTypes) # Choose random limb shape
                     limbs += bodyTemplate # Need to fill name, pos, euler, and values inside body '' + body = one limb. body to body = two limbs
@@ -75,22 +74,25 @@ class Simulation:
                     limbBody = jointTemplate.format('hinge', f"limb{limb}", "-1 0 0", "0 35") # set limb body to be joint.
                     limbBody += generateGeom(limbShape) # add shape to limb string
                     segments = bodyTemplate # track the next level of models branching from limb
-                    for segmentation in range(np.random.randint(2,5)): # Generate random number of segments per limb
+                    segs = np.random.randint(2,5)
+                    for segmentation in range(segs): # Generate random number of segments per limb
                         segShape = np.random.choice(geomTypes) # choose random segment shape
                         segNode = Node("segment", segShape, f'0 0 0', euler=None, size=None) # Generate segment node
                         jointBool = np.random.choice([True, False])
                         joint = ''
                         if jointBool:
-                            joint = jointTemplate.format('hinge', f"limb{limb}", "-1 0 0", "0 35")
-                        segments.format("segments", "0 0 0", "0 0 0", generateGeom(segShape)+joint+bodyTemplate) # File format with current segment information and body for next segment
+                            joint = jointTemplate.format('hinge', f"limb{limb}_{segmentation}", "-1 0 0", "0 35")
+                        if segmentation != segs-1:
+                            segments = segments.format(f"{limb}_{segmentation}", "0 0 0", "0 0 0", generateGeom(segShape)+joint+bodyTemplate) # File format with current segment information and body for next segment
+                        else:
+                            segments = segments.format(f"{limb}_{segmentation}", "0 0 0", "0 0 0", generateGeom(segShape)+joint)
                         limbNode.add_child(segNode)
                     limbBody += segments
-                    print(segments)
-                    limbs.format("name", "0 0 0", "0 0 0", limbBody)
+                    limbs = limbs.format(f"limb:{limb}", "0 0 0", "0 0 0", limbBody, '', '', '', '')
                     motor += motorTemplate.format("name", "joint_name")
                     rootNode.add_child(limbNode, True)
-                body += bodyTemplate.format("name", f"{0} {0} {0}", f"{0} {0} {90}", body+limbs, "")
-                rootNode.phenotype = body
+                body += bodyTemplate.format("name", f"{0} {0} {0}", f"{0} {0} {90}", limbs, "")
+                rootNode.phenotype = xmlTemplate.format(body, '')
                 self.population.append(rootNode) 
         pass
     # This can be done within the simulation class or can create a seperate function that takes simulation class as input
