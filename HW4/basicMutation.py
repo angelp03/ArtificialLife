@@ -1,6 +1,8 @@
 import numpy as np
 import json
 import os
+import mujoco
+import mujoco_viewer
 
 
 xmlTemplate = """
@@ -57,32 +59,39 @@ class Simulation:
         if self.seed is not None:
             # Set unique seed for population
             np.random.seed(self.seed)
-            for model in range(np.random.randint(4,7)): # Generate random number of starting parents
+            for model in range(np.random.randint(4,7)): # Generate random number of parents
+                # Choose random body type
                 bodyShape = np.random.choice(bodyTypes)
                 body = generateGeom(bodyShape)
                 rootNode = Node("body", bodyShape, f"1 1 1", euler=None, size=None)
-                limbs = ''
-                motor = ''
-                for limb in range(np.random.randint(2,5)): # Generate random number of limb
-                    limbShape = np.random.choice(geomTypes)
-                    limbs += bodyTemplate # Need to fill name, pos, euler, and values inside body
+                limbs = '' # Body + limbs should be final insertion
+                motor = '' # Track all the motors for joints
+                print(body)
+                for limb in range(np.random.randint(2,5)): # Generate random number of limbs
+                    limbShape = np.random.choice(geomTypes) # Choose random limb shape
+                    limbs += bodyTemplate # Need to fill name, pos, euler, and values inside body '' + body = one limb. body to body = two limbs
                     limbNode = Node("limb", limbShape, f"0 0 0", euler=None, size=None) #Make limb node
                     # limbs ALWAYS jointed
-                    limbBody = generateGeom(limbShape)
-                    limbBody += jointTemplate.format('hinge', f"limb{limb}", "-1 0 0", "0 35")
-                    segments = ''
-                    for segmentation in range(np.ranodm.randint(0,5)): # Generate random number of segments per limb
-                        segShape = np.random.choice(geomTypes)
-                        segNode = Node("segment", segShape, f'0 0 0', euler=None, size=None)
-                        segments += bodyTemplate  # Need to fill name, pos, euler, and values inside body
+                    limbBody = jointTemplate.format('hinge', f"limb{limb}", "-1 0 0", "0 35") # set limb body to be joint.
+                    limbBody += generateGeom(limbShape) # add shape to limb string
+                    segments = bodyTemplate # track the next level of models branching from limb
+                    for segmentation in range(np.random.randint(2,5)): # Generate random number of segments per limb
+                        segShape = np.random.choice(geomTypes) # choose random segment shape
+                        segNode = Node("segment", segShape, f'0 0 0', euler=None, size=None) # Generate segment node
                         jointBool = np.random.choice([True, False])
-                        limbNode.add_child(segNode, jointBool)
+                        joint = ''
+                        if jointBool:
+                            joint = jointTemplate.format('hinge', f"limb{limb}", "-1 0 0", "0 35")
+                        segments.format("segments", "0 0 0", "0 0 0", generateGeom(segShape)+joint+bodyTemplate) # File format with current segment information and body for next segment
+                        limbNode.add_child(segNode)
                     limbBody += segments
-                    limbs.format("name", f"{0} {0} {0}", "0 0 0", limbBody)
+                    print(segments)
+                    limbs.format("name", "0 0 0", "0 0 0", limbBody)
                     motor += motorTemplate.format("name", "joint_name")
                     rootNode.add_child(limbNode, True)
-                body += bodyTemplate.format("name", f"{0} {0} {0}", f"{0} {0} {90}", limbs, "")
-                self.population.append(rootNode)
+                body += bodyTemplate.format("name", f"{0} {0} {0}", f"{0} {0} {90}", body+limbs, "")
+                rootNode.phenotype = body
+                self.population.append(rootNode) 
         pass
     # This can be done within the simulation class or can create a seperate function that takes simulation class as input
     def run_generation(self):
@@ -111,13 +120,15 @@ class Simulation:
 
 # Make a class for node type considering tree based approach towards genotype creation
 class Node:
-    def __init__(self, classification, shape=None, position=None, euler=None, size=None) -> None:
+    def __init__(self, classification, shape=None, position=None, euler=None, size=None, phenotype=None) -> None:
         self.classification = classification # What is the type of object added to the model
         self.shape = shape # What is the shape of this object
         self.position = position # What is the position of this item with respect to parent
         self.euler = euler # What is the rotation of the object
         self.size = size # What is the size of the object
         self.edges = [] # What other objects stem from this object
+        self.children = []
+        self.phenotype = phenotype
     
     def add_child(self, child,  jointed=True, jointPosition=None, jointType=None):
         self.children.append(child) # Add child to node
@@ -130,3 +141,18 @@ class Node:
 
 # To build model, take in tree, perform DFS and build limbs fully 1 by 1
 # After all limbs built, add to body and run simulation
+
+population = Simulation(891)
+population.initialize_population()
+for parent in population.population:
+    model = mujoco.MjModel.from_xml_string(parent.phenotype)
+    data = mujoco.MjData(model)
+    #Make viewer
+    viewer = mujoco_viewer.MujocoViewer(model, data)
+    for i in range(10000):
+        if viewer.is_alive:
+            mujoco.mj_step(model, data)
+            viewer.render()
+        else:
+            break
+    viewer.close()
