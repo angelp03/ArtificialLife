@@ -92,7 +92,7 @@ class Simulation:
                     motor += motorTemplate.format("name", "joint_name")
                     rootNode.add_child(limbNode, True)
                 body += bodyTemplate.format("name", f"{0} {0} {0}", f"{0} {0} {90}", limbs, "")
-                rootNode.phenotype = xmlTemplate.format(body, '')
+                rootNode.phenotype = xmlTemplate.format(body, '') #Need to add motors
                 self.population.append(rootNode) 
         pass
     # This can be done within the simulation class or can create a seperate function that takes simulation class as input
@@ -122,7 +122,7 @@ class Simulation:
 
 # Make a class for node type considering tree based approach towards genotype creation
 class Node:
-    def __init__(self, classification, shape=None, position=None, euler=None, size=None, phenotype=None) -> None:
+    def __init__(self, classification=None, shape=None, position=None, euler=None, size=None, phenotype=None) -> None:
         self.classification = classification # What is the type of object added to the model
         self.shape = shape # What is the shape of this object
         self.position = position # What is the position of this item with respect to parent
@@ -140,10 +140,36 @@ class Node:
             edge_info['jointType'] = jointType # Include type of joint
         self.edges.append(edge_info) # Add the edge information to list of edges
         # child[i] gives ith child and edges[i] gives information of edge with child
+    
+    # create a copy of tree and make any potential mutations
+    def copy_and_mutate(self, mutation_chance=0.1):
+        new_node = Node(self.classification, self.shape, self.position, self.euler, self.size)
+        for child in self.children:
+            new_node.add_child(child.copy())  # recursively copy children
+        for edge in self.edges:
+            new_node.add_edge(edge)
+        # Generate random chance to mutate
+        if np.random.rand() < mutation_chance:
+            # Perform mutation
+            mutation_type = np.random.choice(["add", "subtract", "change"])
+            if mutation_type == "add": # Add a new child node
+                new_node.add_child(Node())
+            elif mutation_type == "subtract": # Remove child node if possible
+                if new_node.children:
+                    new_node.children.pop()
+            # Add for final project to allow shape, position, size changes
+            # elif mutation_type == "change":
+                # Change some attributes of the node
+                # new_node.classification = "changed_classification"
+                # new_node.shape = "changed_shape"
+                # Similarly, you can change other attributes as needed
+
+        return new_node
+
+
 
 # To build model, take in tree, perform DFS and build limbs fully 1 by 1
 # After all limbs built, add to body and run simulation
-
 population = Simulation(891)
 population.initialize_population()
 for parent in population.population:
