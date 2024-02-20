@@ -1,6 +1,4 @@
 import numpy as np
-import json
-import os
 import mujoco
 import mujoco_viewer
 
@@ -91,10 +89,10 @@ class Simulation:
                             segments = segments.format(f"{limb}_{segmentation}", "0 0 0", "0 0 0", generateGeom(segShape)+joint)
                         limbNode.add_child(segNode)
                     limbBody += segments
-                    limbs = limbs.format(f"{limb}", "0 0 0", "0 0 0", limbBody, '', '', '', '')
+                    limbs = limbs.format(f"{limb}", "0 0 0", "0 0 0", limbBody)
                     motor += motorTemplate.format(f"{limb}_motor", f"{limb}_joint")
                     rootNode.add_child(limbNode, True)
-                body += bodyTemplate.format("model", f"{0} {0} {0}", f"{0} {0} {90}", limbs, "")
+                body += bodyTemplate.format("model", f"{0} {0} {0}", f"{0} {0} {90}", limbs)
                 rootNode.phenotype = xmlTemplate.format(body, motor) #Need to add motors
                 self.population.append(rootNode) 
         pass
@@ -203,8 +201,8 @@ def build_from_tree (root: Node):
                 else:
                     segments = segments.format(f'{limb}_{segment}', "0 0 0", "0 0 0", generateGeom(segment.shape)+joint)
             limbBody += segments
-        limbs = limbs.format(f"limb:{limb}", "0 0 0", "0 0 0", limbBody, '', '', '', '')
-    body += bodyTemplate.format('name', f"{0} {0} {0}", f"{0} {0} {90}", limbs,'',)
+        limbs = limbs.format(f"limb:{limb}", "0 0 0", "0 0 0", limbBody)
+    body += bodyTemplate.format('name', f"{0} {0} {0}", f"{0} {0} {90}", limbs)
     root.phenotype = xmlTemplate.format(body, motors)
 
 
