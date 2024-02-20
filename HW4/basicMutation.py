@@ -101,6 +101,8 @@ class Simulation:
         if self.seed is not None:
             np.random.seed(self.seed)
         self.generation += 1
+        for parent in self.population:
+            parent.evaluate_fitness()
         pass
     # Save state into simulations directory || Change so it takes in a seed and loads file based on that
     """ def save_state(self, directory='simulations'):
@@ -123,7 +125,7 @@ class Simulation:
 
 # Make a class for node type considering tree based approach towards genotype creation
 class Node:
-    def __init__(self, classification=None, shape=None, position=None, euler=None, size=None, phenotype=None) -> None:
+    def __init__(self, classification=None, shape=None, position=None, euler=None, size=None, phenotype=None, fitness=0) -> None:
         self.classification = classification # What is the type of object added to the model
         self.shape = shape # What is the shape of this object
         self.position = position # What is the position of this item with respect to parent
@@ -132,6 +134,7 @@ class Node:
         self.edges = [] # What other objects stem from this object
         self.children = []
         self.phenotype = phenotype
+        self.fitness = fitness
     
     def add_child(self, child,  jointed=True, jointPosition=None, jointType=None):
         self.children.append(child) # Add child to node
@@ -176,6 +179,21 @@ class Node:
                 # Similarly, you can change other attributes as needed
 
         return new_node
+    
+    def evaluate_fitness(self):
+        fit = 0
+        model = mujoco.MjModel.from_xml_string(self.phenotype)
+        data = mujoco.MjData(model)
+        #Make viewer
+        viewer = mujoco_viewer.MujocoViewer(model, data)
+        for i in range(10000):
+            if viewer.is_alive:
+                mujoco.mj_step(model, data)
+                viewer.render()
+            else:
+                break
+        viewer.close()
+        self.fitness = fit
 
 # 3-level tree, body --> limb --> segments
 def build_from_tree (root: Node):
@@ -210,20 +228,8 @@ def build_from_tree (root: Node):
 # After all limbs built, add to body and run simulation
 population = Simulation(891)
 population.initialize_population()
-models = population.population
+population.run_generation()
+""" models = population.population
 mutation = models[0].copy_and_mutate(mutation_chance=1)
 build_from_tree(mutation)
-modelArrays = [models[0], mutation]
-for parent in modelArrays:
-    print(parent.phenotype)
-    model = mujoco.MjModel.from_xml_string(parent.phenotype)
-    data = mujoco.MjData(model)
-    #Make viewer
-    viewer = mujoco_viewer.MujocoViewer(model, data)
-    for i in range(10000):
-        if viewer.is_alive:
-            mujoco.mj_step(model, data)
-            viewer.render()
-        else:
-            break
-    viewer.close()
+modelArrays = [models[0], mutation] """
