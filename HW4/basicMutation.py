@@ -40,11 +40,13 @@ posn = [(0.5,0,0,0,0,-90), (-0.5,0,0,0,0,90), (0,0.5,0,0,0,0), (0,-0.5,0,0,0,180
 
 def generateGeom (type: str):
     if type == "sphere":
-        return geomTemplate.format(type, f"{1}")
+        return geomTemplate.format(type, f"{0.5}")
     elif type == "cylinder" or type == "capsule":
-        return geomTemplate.format(type, f"{1} {1}")
+        return geomTemplate.format(type, f"{0.3} {0.3}")
     elif type == "box":
-        return geomTemplate.format(type, f"{1} {1} {1}")
+        return geomTemplate.format(type, f"{0.3} {0.3} {0.3}")
+    else:
+        return ''
 
 # Make a simulation class in order to generate, store, and load based on unique seed
 class Simulation:
@@ -141,19 +143,30 @@ class Node:
         self.edges.append(edge_info) # Add the edge information to list of edges
         # child[i] gives ith child and edges[i] gives information of edge with child
     
+    def display(self, depth=0):
+        indent = ' ' * (depth * 4)
+        print(f"{indent}{self.classification} (Shape: {self.shape}, Position: {self.position}, Euler: {self.euler}, Size: {self.size})")
+        for child in self.children:
+            child.display(depth + 1)
+
+    def is_jointed(self, child):
+        for edge in self.edges:
+            if edge['child'] is child and edge['jointed']:
+                return True
+        return False
+    
     # create a copy of tree and make any potential mutations
     def copy_and_mutate(self, mutation_chance=0.1):
         new_node = Node(self.classification, self.shape, self.position, self.euler, self.size)
         for child in self.children:
-            new_node.add_child(child.copy())  # recursively copy children
-        for edge in self.edges:
-            new_node.add_edge(edge)
+            new_node.add_child(child.copy_and_mutate())  # recursively copy children
         # Generate random chance to mutate
-        if np.random.rand() < mutation_chance:
+        if np.random.rand() < mutation_chance and self.classification != "limb": ## GET RID OF SECOND CHECK ONCE LIMB CREATION SUPPORTS MUTATION
             # Perform mutation
             mutation_type = np.random.choice(["add", "subtract", "change"])
             if mutation_type == "add": # Add a new child node
-                new_node.add_child(Node())
+                print("Node added \n")
+                new_node.add_child(Node("segment", "box", f'0 0 0', euler=None, size=None))
             elif mutation_type == "subtract": # Remove child node if possible
                 if new_node.children:
                     new_node.children.pop()
@@ -166,13 +179,41 @@ class Node:
 
         return new_node
 
+# 3-level tree, body --> limb --> segments
+def build_from_tree (root: Node):
+    body = generateGeom(root.shape)
+    limbs = ''
+    for limb in root.children:
+        limbs += bodyTemplate
+        limbBody = jointTemplate.format('hinge',f'limb{limb}', '-1 0 0', "0 35")
+        limbBody += generateGeom(limb.shape)
+        segments = bodyTemplate
+        n = len(limb.children)
+        for segment in limb.children:
+            joint = ''
+            if limb.is_jointed(segment):
+                joint = jointTemplate.format('hinge', f"limb{limb}_{segment}", "-1 0 0", "0 35")
+            if limb.children.index(segment) != n - 1: #if not the last segment
+                segments = segments.format(f'{limb}_{segment}', "0 0 0", "0 0 0", generateGeom(segment.shape)+joint+bodyTemplate)
+            else:
+                segments = segments.format(f'{limb}_{segment}', "0 0 0", "0 0 0", generateGeom(segment.shape)+joint)
+        limbBody += segments
+        limbs = limbs.format(f"limb:{limb}", "0 0 0", "0 0 0", limbBody, '', '', '', '')
+    body += bodyTemplate.format('name', f"{0} {0} {0}", f"{0} {0} {90}", limbs,'',)
+    root.phenotype = xmlTemplate.format(body, '')
 
 
 # To build model, take in tree, perform DFS and build limbs fully 1 by 1
 # After all limbs built, add to body and run simulation
 population = Simulation(891)
 population.initialize_population()
-for parent in population.population:
+models = population.population
+mutation = models[0].copy_and_mutate(mutation_chance=1)
+build_from_tree(mutation)
+modelArrays = [models[0], mutation]
+for parent in modelArrays:
+    if parent == mutation:
+        print(parent.phenotype)
     model = mujoco.MjModel.from_xml_string(parent.phenotype)
     data = mujoco.MjData(model)
     #Make viewer
