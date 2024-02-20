@@ -183,10 +183,12 @@ class Node:
 def build_from_tree (root: Node):
     body = generateGeom(root.shape)
     limbs = ''
+    motors = ''
     m = len(root.children)
     for i, limb in enumerate(root.children):
         limbs += bodyTemplate
-        limbBody = jointTemplate.format('hinge',f'limb{limb}', '-1 0 0', "0 35")
+        limbBody = jointTemplate.format('hinge',f'{i}_joint', '-1 0 0', "0 35")
+        motors += motorTemplate.format(f'{i}_motor', f"{i}_joint")
         limbBody += generateGeom(limb.shape)
         if limb.children: #if a limb has segments build segment xml string
             segments = bodyTemplate
@@ -194,7 +196,8 @@ def build_from_tree (root: Node):
             for j, segment in enumerate(limb.children):
                 joint = ''
                 if limb.is_jointed(segment):
-                    joint = jointTemplate.format('hinge', f"limb{limb}_{segment}", "-1 0 0", "0 35")
+                    joint = jointTemplate.format('hinge', f"{i}_{j}_joint", "-1 0 0", "0 35")
+                    motors += motorTemplate.format(f'{i}_{j}_motor', f"{i}_{j}_joint")
                 if j != n - 1: #if not the last segment
                     segments = segments.format(f'{limb}_{segment}', "0 0 0", "0 0 0", generateGeom(segment.shape)+joint+bodyTemplate)
                 else:
@@ -202,7 +205,7 @@ def build_from_tree (root: Node):
             limbBody += segments
         limbs = limbs.format(f"limb:{limb}", "0 0 0", "0 0 0", limbBody, '', '', '', '')
     body += bodyTemplate.format('name', f"{0} {0} {0}", f"{0} {0} {90}", limbs,'',)
-    root.phenotype = xmlTemplate.format(body, '')
+    root.phenotype = xmlTemplate.format(body, motors)
 
 
 # To build model, take in tree, perform DFS and build limbs fully 1 by 1
