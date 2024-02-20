@@ -11,7 +11,7 @@ xmlTemplate = """
     <worldbody>
         <light diffuse = '.5 .5 .5' pos = '0 0 6' dir = '0 0 -1'/>
         <geom type = 'plane' size = '5 5 0.1' rgba = '1 1 1 1'/>
-        <body name = '0' pos = '0 0 1'>
+        <body name = 'body' pos = '0 0 1'>
             <joint type = 'free'/>
             {} 
         </body>
@@ -22,7 +22,7 @@ xmlTemplate = """
 </mujoco>
 """
 
-motorTemplate = """<motor name = {} joint ={}/>"""
+motorTemplate = """<motor name = '{}' joint = '{}'/>"""
 
 bodyTemplate = """
         <body name = '{}' pos='{}' euler='{}'> 
@@ -73,28 +73,29 @@ class Simulation:
                     limbs += bodyTemplate # Need to fill name, pos, euler, and values inside body '' + body = one limb. body to body = two limbs
                     limbNode = Node("limb", limbShape, f"0 0 0", euler=None, size=None) #Make limb node
                     # limbs ALWAYS jointed
-                    limbBody = jointTemplate.format('hinge', f"limb{limb}", "-1 0 0", "0 35") # set limb body to be joint.
+                    limbBody = jointTemplate.format('hinge', f"{limb}_joint", "-1 0 0", "0 35") # set limb body to be joint.
                     limbBody += generateGeom(limbShape) # add shape to limb string
                     segments = bodyTemplate # track the next level of models branching from limb
                     segs = np.random.randint(2,5)
                     for segmentation in range(segs): # Generate random number of segments per limb
                         segShape = np.random.choice(geomTypes) # choose random segment shape
-                        segNode = Node("segment", segShape, f'0 0 0', euler=None, size=None) # Generate segment node
+                        segNode = Node(f"segment", segShape, f'0 0 0', euler=None, size=None) # Generate segment node
                         jointBool = np.random.choice([True, False])
                         joint = ''
                         if jointBool:
-                            joint = jointTemplate.format('hinge', f"limb{limb}_{segmentation}", "-1 0 0", "0 35")
+                            joint = jointTemplate.format('hinge', f"{limb}_{segmentation}_joint", "-1 0 0", "0 35")
+                            motor += motorTemplate.format(f"{limb}_{segmentation}_motor", f"{limb}_{segmentation}_joint")
                         if segmentation != segs-1:
                             segments = segments.format(f"{limb}_{segmentation}", "0 0 0", "0 0 0", generateGeom(segShape)+joint+bodyTemplate) # File format with current segment information and body for next segment
                         else:
                             segments = segments.format(f"{limb}_{segmentation}", "0 0 0", "0 0 0", generateGeom(segShape)+joint)
                         limbNode.add_child(segNode)
                     limbBody += segments
-                    limbs = limbs.format(f"limb:{limb}", "0 0 0", "0 0 0", limbBody, '', '', '', '')
-                    motor += motorTemplate.format("name", "joint_name")
+                    limbs = limbs.format(f"{limb}", "0 0 0", "0 0 0", limbBody, '', '', '', '')
+                    motor += motorTemplate.format(f"{limb}_motor", f"{limb}_joint")
                     rootNode.add_child(limbNode, True)
-                body += bodyTemplate.format("name", f"{0} {0} {0}", f"{0} {0} {90}", limbs, "")
-                rootNode.phenotype = xmlTemplate.format(body, '') #Need to add motors
+                body += bodyTemplate.format("model", f"{0} {0} {0}", f"{0} {0} {90}", limbs, "")
+                rootNode.phenotype = xmlTemplate.format(body, motor) #Need to add motors
                 self.population.append(rootNode) 
         pass
     # This can be done within the simulation class or can create a seperate function that takes simulation class as input
@@ -104,7 +105,7 @@ class Simulation:
         self.generation += 1
         pass
     # Save state into simulations directory || Change so it takes in a seed and loads file based on that
-    def save_state(self, directory='simulations'):
+    """ def save_state(self, directory='simulations'):
         if not os.path.exists(directory):
             os.makedirs(directory)
         filename = os.path.join(directory, f"simulation_{self.seed}.json")
@@ -120,7 +121,7 @@ class Simulation:
         with open(filename, 'r') as f:
             state = json.load(f)
         # Set important information
-        self.seed = state['seed']
+        self.seed = state['seed'] """
 
 # Make a class for node type considering tree based approach towards genotype creation
 class Node:
@@ -161,11 +162,10 @@ class Node:
         for child in self.children:
             new_node.add_child(child.copy_and_mutate())  # recursively copy children
         # Generate random chance to mutate
-        if np.random.rand() < mutation_chance and self.classification != "limb": ## GET RID OF SECOND CHECK ONCE LIMB CREATION SUPPORTS MUTATION
+        if np.random.rand() < mutation_chance: ## GET RID OF SECOND CHECK ONCE LIMB CREATION SUPPORTS MUTATION
             # Perform mutation
             mutation_type = np.random.choice(["add", "subtract", "change"])
             if mutation_type == "add": # Add a new child node
-                print("Node added \n")
                 new_node.add_child(Node("segment", "box", f'0 0 0', euler=None, size=None))
             elif mutation_type == "subtract": # Remove child node if possible
                 if new_node.children:
@@ -183,21 +183,23 @@ class Node:
 def build_from_tree (root: Node):
     body = generateGeom(root.shape)
     limbs = ''
-    for limb in root.children:
+    m = len(root.children)
+    for i, limb in enumerate(root.children):
         limbs += bodyTemplate
         limbBody = jointTemplate.format('hinge',f'limb{limb}', '-1 0 0', "0 35")
         limbBody += generateGeom(limb.shape)
-        segments = bodyTemplate
-        n = len(limb.children)
-        for segment in limb.children:
-            joint = ''
-            if limb.is_jointed(segment):
-                joint = jointTemplate.format('hinge', f"limb{limb}_{segment}", "-1 0 0", "0 35")
-            if limb.children.index(segment) != n - 1: #if not the last segment
-                segments = segments.format(f'{limb}_{segment}', "0 0 0", "0 0 0", generateGeom(segment.shape)+joint+bodyTemplate)
-            else:
-                segments = segments.format(f'{limb}_{segment}', "0 0 0", "0 0 0", generateGeom(segment.shape)+joint)
-        limbBody += segments
+        if limb.children: #if a limb has segments build segment xml string
+            segments = bodyTemplate
+            n = len(limb.children)
+            for j, segment in enumerate(limb.children):
+                joint = ''
+                if limb.is_jointed(segment):
+                    joint = jointTemplate.format('hinge', f"limb{limb}_{segment}", "-1 0 0", "0 35")
+                if j != n - 1: #if not the last segment
+                    segments = segments.format(f'{limb}_{segment}', "0 0 0", "0 0 0", generateGeom(segment.shape)+joint+bodyTemplate)
+                else:
+                    segments = segments.format(f'{limb}_{segment}', "0 0 0", "0 0 0", generateGeom(segment.shape)+joint)
+            limbBody += segments
         limbs = limbs.format(f"limb:{limb}", "0 0 0", "0 0 0", limbBody, '', '', '', '')
     body += bodyTemplate.format('name', f"{0} {0} {0}", f"{0} {0} {90}", limbs,'',)
     root.phenotype = xmlTemplate.format(body, '')
@@ -212,8 +214,7 @@ mutation = models[0].copy_and_mutate(mutation_chance=1)
 build_from_tree(mutation)
 modelArrays = [models[0], mutation]
 for parent in modelArrays:
-    if parent == mutation:
-        print(parent.phenotype)
+    print(parent.phenotype)
     model = mujoco.MjModel.from_xml_string(parent.phenotype)
     data = mujoco.MjData(model)
     #Make viewer
