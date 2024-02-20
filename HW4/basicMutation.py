@@ -8,7 +8,7 @@ xmlTemplate = """
     <option gravity = '0 0 -9.81'/>
     <worldbody>
         <light diffuse = '.5 .5 .5' pos = '0 0 6' dir = '0 0 -1'/>
-        <geom type = 'plane' size = '5 5 0.1' rgba = '1 1 1 1'/>
+        <geom type = 'plane' size = '10 10 0.1' rgba = '1 1 1 1'/>
         <body name = 'body' pos = '0 0 1'>
             <joint type = 'free'/>
             {} 
@@ -38,13 +38,19 @@ posn = [(0.5,0,0,0,0,-90), (-0.5,0,0,0,0,90), (0,0.5,0,0,0,0), (0,-0.5,0,0,0,180
 
 def generateGeom (type: str):
     if type == "sphere":
-        return geomTemplate.format(type, f"{0.5}")
+        return geomTemplate.format(type, f"{0.7}")
     elif type == "cylinder" or type == "capsule":
         return geomTemplate.format(type, f"{0.3} {0.3}")
     elif type == "box":
         return geomTemplate.format(type, f"{0.3} {0.3} {0.3}")
     else:
         return ''
+
+def generatePosn():
+    x = np.random.rand() * np.random.choice([1,-1])
+    y = np.random.rand() * np.random.choice([1,-1])
+    z = np.random.rand()
+    return (x, y, z)
 
 # Make a simulation class in order to generate, store, and load based on unique seed
 class Simulation:
@@ -60,16 +66,16 @@ class Simulation:
             # Set unique seed for population
             np.random.seed(self.seed)
             for model in range(np.random.randint(4,7)): # Generate random number of parents
-                # Choose random body type
-                bodyShape = np.random.choice(bodyTypes)
+                bodyShape = np.random.choice(bodyTypes) # Select random body type
                 body = generateGeom(bodyShape)
                 rootNode = Node("body", bodyShape, f"1 1 1", euler=None, size=None)
                 limbs = '' # Body + limbs should be final insertion
                 motor = '' # Track all the motors for joints
                 for limb in range(np.random.randint(2,5)): # Generate random number of limbs
                     limbShape = np.random.choice(geomTypes) # Choose random limb shape
+                    limbPosn = generatePosn()
                     limbs += bodyTemplate # Need to fill name, pos, euler, and values inside body '' + body = one limb. body to body = two limbs
-                    limbNode = Node("limb", limbShape, f"0 0 0", euler=None, size=None) #Make limb node
+                    limbNode = Node("limb", limbShape, f"{limbPosn[0]} {limbPosn[1]} {limbPosn[2]}", euler=None, size=None) #Make limb node
                     # limbs ALWAYS jointed
                     limbBody = jointTemplate.format('hinge', f"{limb}_joint", "-1 0 0", "0 35") # set limb body to be joint.
                     limbBody += generateGeom(limbShape) # add shape to limb string
@@ -77,33 +83,42 @@ class Simulation:
                     segs = np.random.randint(2,5)
                     for segmentation in range(segs): # Generate random number of segments per limb
                         segShape = np.random.choice(geomTypes) # choose random segment shape
-                        segNode = Node(f"segment", segShape, f'0 0 0', euler=None, size=None) # Generate segment node
+                        segPosn = generatePosn()
+                        segNode = Node(f"segment", segShape, f'{segPosn[0]} {segPosn[1]} {segPosn[2]}', euler=None, size=None) # Generate segment node
                         jointBool = np.random.choice([True, False])
                         joint = ''
                         if jointBool:
                             joint = jointTemplate.format('hinge', f"{limb}_{segmentation}_joint", "-1 0 0", "0 35")
                             motor += motorTemplate.format(f"{limb}_{segmentation}_motor", f"{limb}_{segmentation}_joint")
                         if segmentation != segs-1:
-                            segments = segments.format(f"{limb}_{segmentation}", "0 0 0", "0 0 0", generateGeom(segShape)+joint+bodyTemplate) # File format with current segment information and body for next segment
+                            segments = segments.format(f"{limb}_{segmentation}",f'{segPosn[0]} {segPosn[1]} {segPosn[2]}', "0 0 0", generateGeom(segShape)+joint+bodyTemplate) # File format with current segment information and body for next segment
                         else:
-                            segments = segments.format(f"{limb}_{segmentation}", "0 0 0", "0 0 0", generateGeom(segShape)+joint)
+                            segments = segments.format(f"{limb}_{segmentation}", f'{segPosn[0]} {segPosn[1]} {segPosn[2]}', "0 0 0", generateGeom(segShape)+joint)
                         limbNode.add_child(segNode)
                     limbBody += segments
-                    limbs = limbs.format(f"{limb}", "0 0 0", "0 0 0", limbBody)
+                    limbs = limbs.format(f"{limb}", f"{limbPosn[0]} {limbPosn[1]} {limbPosn[2]}", "0 0 0", limbBody)
                     motor += motorTemplate.format(f"{limb}_motor", f"{limb}_joint")
                     rootNode.add_child(limbNode, True)
-                body += bodyTemplate.format("model", f"{0} {0} {0}", f"{0} {0} {90}", limbs)
+                body += bodyTemplate.format("model", f"{0} {0} {1}", f"{0} {0} {90}", limbs)
                 rootNode.phenotype = xmlTemplate.format(body, motor) #Need to add motors
                 self.population.append(rootNode) 
         pass
-    # This can be done within the simulation class or can create a seperate function that takes simulation class as input
+    
     def run_generation(self):
         if self.seed is not None:
             np.random.seed(self.seed)
         self.generation += 1
         for parent in self.population:
-            parent.evaluate_fitness()
-        pass
+            if parent.fitness == 0: # Only reevaluate if fitness hasn't been calculated
+                parent.evaluate_fitness()
+        self.population = sorted(self.population, key=lambda x: x.fitness) # Sort population by highest fitness
+        n = len(self.population)
+        while n > 5: # Only the 5 most fit entities are kept
+            self.population.pop() 
+            n -= 1
+        if n < 10: # Fill remaining population with children
+            for i in range(n,10):
+                self.population.append(self.population[i-n].copy_and_mutate())
     # Save state into simulations directory || Change so it takes in a seed and loads file based on that
     """ def save_state(self, directory='simulations'):
         if not os.path.exists(directory):
@@ -126,12 +141,12 @@ class Simulation:
 # Make a class for node type considering tree based approach towards genotype creation
 class Node:
     def __init__(self, classification=None, shape=None, position=None, euler=None, size=None, phenotype=None, fitness=0) -> None:
-        self.classification = classification # What is the type of object added to the model
-        self.shape = shape # What is the shape of this object
-        self.position = position # What is the position of this item with respect to parent
-        self.euler = euler # What is the rotation of the object
-        self.size = size # What is the size of the object
-        self.edges = [] # What other objects stem from this object
+        self.classification = classification 
+        self.shape = shape 
+        self.position = position 
+        self.euler = euler 
+        self.size = size 
+        self.edges = []
         self.children = []
         self.phenotype = phenotype
         self.fitness = fitness
@@ -163,7 +178,7 @@ class Node:
         for child in self.children:
             new_node.add_child(child.copy_and_mutate())  # recursively copy children
         # Generate random chance to mutate
-        if np.random.rand() < mutation_chance: ## GET RID OF SECOND CHECK ONCE LIMB CREATION SUPPORTS MUTATION
+        if np.random.rand() < mutation_chance:
             # Perform mutation
             mutation_type = np.random.choice(["add", "subtract", "change"])
             if mutation_type == "add": # Add a new child node
@@ -171,13 +186,15 @@ class Node:
             elif mutation_type == "subtract": # Remove child node if possible
                 if new_node.children:
                     new_node.children.pop()
-            # Add for final project to allow shape, position, size changes
-            # elif mutation_type == "change":
-                # Change some attributes of the node
-                # new_node.classification = "changed_classification"
-                # new_node.shape = "changed_shape"
-                # Similarly, you can change other attributes as needed
-
+            elif mutation_type == "change": # Change features of node
+                change_type = np.random.choice(["shape", "size", "position"])
+                if change_type == "shape":
+                    new_node.shape = np.random.choice(geomTypes)
+                elif change_type == "size":
+                    new_node.size = "0 0 0"
+                elif change_type == "position":
+                    new_position = generatePosn()
+                    new_node.position = f"{new_position[0]} {new_position[1]} {new_position[2]}"
         return new_node
     
     def evaluate_fitness(self):
@@ -203,7 +220,7 @@ def build_from_tree (root: Node):
     m = len(root.children)
     for i, limb in enumerate(root.children):
         limbs += bodyTemplate
-        limbBody = jointTemplate.format('hinge',f'{i}_joint', '-1 0 0', "0 35")
+        limbBody = jointTemplate.format('hinge',f'{i}_joint', limb.position, "0 35")
         motors += motorTemplate.format(f'{i}_motor', f"{i}_joint")
         limbBody += generateGeom(limb.shape)
         if limb.children: #if a limb has segments build segment xml string
@@ -215,12 +232,12 @@ def build_from_tree (root: Node):
                     joint = jointTemplate.format('hinge', f"{i}_{j}_joint", "-1 0 0", "0 35")
                     motors += motorTemplate.format(f'{i}_{j}_motor', f"{i}_{j}_joint")
                 if j != n - 1: #if not the last segment
-                    segments = segments.format(f'{limb}_{segment}', "0 0 0", "0 0 0", generateGeom(segment.shape)+joint+bodyTemplate)
+                    segments = segments.format(f'{limb}_{segment}', segment.position, "0 0 0", generateGeom(segment.shape)+joint+bodyTemplate)
                 else:
-                    segments = segments.format(f'{limb}_{segment}', "0 0 0", "0 0 0", generateGeom(segment.shape)+joint)
+                    segments = segments.format(f'{limb}_{segment}', segment.position, "0 0 0", generateGeom(segment.shape)+joint)
             limbBody += segments
-        limbs = limbs.format(f"limb:{limb}", "0 0 0", "0 0 0", limbBody)
-    body += bodyTemplate.format('name', f"{0} {0} {0}", f"{0} {0} {90}", limbs)
+        limbs = limbs.format(f"{limb}", "0 0 0", "0 0 0", limbBody)
+    body += bodyTemplate.format('name', f"{0} {0} {1}", f"{0} {0} {90}", limbs)
     root.phenotype = xmlTemplate.format(body, motors)
 
 
@@ -229,7 +246,3 @@ def build_from_tree (root: Node):
 population = Simulation(891)
 population.initialize_population()
 population.run_generation()
-""" models = population.population
-mutation = models[0].copy_and_mutate(mutation_chance=1)
-build_from_tree(mutation)
-modelArrays = [models[0], mutation] """
