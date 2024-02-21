@@ -104,57 +104,6 @@ actuatorXML = """
 # Initial generation developed through randomized graphs
 # 
 
-# Generate randomized posns for initial generations of models
-def generate_posn ():
-    x = random.randrange(0,2, 0.1)
-    y = random.randrange(0,2, 0.1)
-    z = random.randrange(0,2, 0.1)
-    return (x,y,z)
-
-# Generate xml string based on graph
-def generate_xml(id, population):
-    parentCreature = population.get_creature(id)
-    parentGraph = parentCreature.get_graph()
-    parentPosns = parentCreature.get_posns()
-    print(parentPosns)
-    parentLength = parentGraph.get_length()
-    #XML string for limbs
-    limbsXML = ""
-    #XML string for joint motors
-    motorXML = ""
-    limbs = 1
-    segs = 1
-    posnIndex = 0
-    for i in range(parentLength):
-        edges = parentGraph.get_edges(i)
-        if len(edges) > 0:
-            limbs += len([x for x in edges if x != i])
-            if i != 0:
-                segs += len([j for j in edges if j != i])
-    for i in range(limbs):
-        entityGraph.add_vertex(i+1)
-        entityGraph.add_edge(0,i+1)      
-        segXML = ''
-        #Create hierarchy of limb segments
-        for j in range(segs):
-            entityGraph.add_edge(i+1, i+1)
-            if j == 0:
-                segXML = body
-            if j != segs-1:
-                segXML = segXML.format(f"limb{i}-seg-{j}", "0 .2 -.1", f"{(-90/segs)} 0 0", box+body)
-            else:
-                segXML = segXML.format(f"limb{i}-seg-{j}", "0 .2 -.1", f"{(-90/segs)} 0 0", box)
-        limbsXML += body.format(f"limb-{i+1}", f"{parentPosns[posnIndex][0]} {parentPosns[posnIndex][1]} {parentPosns[posnIndex][2]}",
-                            f"{parentPosns[posnIndex][3]} {parentPosns[posnIndex][4]} {parentPosns[posnIndex][5]}", 
-                            joint.format('hinge', i+1)+box+segXML)
-        motorXML += motor.format(f"motor-limb-{i+1}", i+1)
-        posnIndex += 1
-
-    #Format xml string
-    jumpingXML = xml.format(sphere+limbsXML, actuatorXML.format(motorXML))
-    population.add_creature(Creature(creature_uid, jumpingXML, entityGraph, posn))
-    return jumpingXML
-
 #Possible limb positions and rotations - currently hardcoded
 posn = [(0.5,0,0,0,0,-90), (-0.5,0,0,0,0,90), (0,0.5,0,0,0,0), (0,-0.5,0,0,0,180)]
 
@@ -256,5 +205,6 @@ for z in range(random.randrange(3,6)):
         maxRatio = float((maxHeight-heightOffset)/heightOffset)
         maxIndex = z
     viewer.close()
-    print(maxRatio)
-print ("Best fitness levels: " + population.get_creature(maxIndex).get_graph().display())
+
+print(maxRatio)
+modelArray[maxIndex].display()
