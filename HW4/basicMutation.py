@@ -2,11 +2,6 @@ import numpy as np
 import mujoco
 import mujoco_viewer
 
-# Positions and rotations hard coded to ensure observable difference in movement, structure
-# Need to add euler and size randomization
-# Potentially add crossing over = setting a limb to be equal to another limb from a model in the population
-# Need to figure out the fitness funciton
-# Need to randomize joint axis and ranges <-- Maybe
 xmlTemplate = """
 <mujoco>
     <option gravity = '0 0 -9.81'/>
@@ -53,12 +48,6 @@ def generateGeom (type: str):
         return  """<geom type="box" size=".1 .2 .1" rgba="1 0 0 1"/>"""
     else:
         return ''
-# Not currently being used
-""" def generatePosn():
-    x = np.random.rand() * np.random.choice([1,-1])
-    y = np.random.rand() * np.random.choice([1,-1])
-    z = np.random.rand()
-    return (x, y, z) """
 
 # Make a simulation class in order to generate, store, and load based on unique seed
 class Simulation:
@@ -131,24 +120,6 @@ class Simulation:
         if n < 10: # Fill remaining population with children
             for i in range(n,10):
                 self.population.append(self.population[i-n].copy_and_mutate())
-    # Save state into simulations directory || Change so it takes in a seed and loads file based on that
-    """ def save_state(self, directory='simulations'):
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        filename = os.path.join(directory, f"simulation_{self.seed}.json")
-        # Need to consider what values are required to continue a simulation
-        state = {
-            'seed': self.seed
-        }
-        # Add important information to respective file
-        with open(filename, 'w') as f:
-            json.dump(state, f)
-    # Load state from previous simulation
-    def load_state(self, filename):
-        with open(filename, 'r') as f:
-            state = json.load(f)
-        # Set important information
-        self.seed = state['seed'] """
 
 # Make a class for node type considering tree-based approach towards genotype creation
 class Node:
