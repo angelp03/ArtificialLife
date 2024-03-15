@@ -2,6 +2,7 @@ import numpy as np
 import mujoco
 import mujoco_viewer
 import math
+import time
 
 
 xmlTemplate = """
@@ -131,8 +132,7 @@ class Simulation:
         self.generation += 1
         print("Generation:"+ str(self.generation) + '\n')
         for parent in self.population:
-            if parent.limbs != 1: # Prevents from exploiting single limb and staying in local maximum
-                print(parent.limbs)
+            if parent.limbs != 1 and parent.fitness == 0: # Prevents from exploiting single limb and staying in local maximum
                 parent.evaluate_fitness()
             else:
                 parent.fitness = 0
@@ -185,9 +185,6 @@ class Node:
             if edge['child'] is child and edge['jointed']:
                 return True
         return False
-    
-    # NEED TO REVIEW AND ADJUST MUTATIONS
-    # SHOULD BE LAST CHANGE REQUIRED BEFORE JUST RUNNING SIMULATION
     # create a copy of tree and make any potential mutations
     def copy_and_mutate(self, mutation_chance=0.1):
         new_node = Node(self.classification, self.shape, self.position, self.euler, self.size, limbs=self.limbs)
@@ -219,8 +216,7 @@ class Node:
         return new_node
     
     def evaluate_fitness(self):
-        fit = 0
-        velocities = np.array([100 for i in range(self.motors)])
+        velocities = np.array([200 for i in range(self.motors)])
         model = mujoco.MjModel.from_xml_string(self.phenotype)
         data = mujoco.MjData(model)
         actuators = model.nu
@@ -228,7 +224,7 @@ class Node:
         viewer = mujoco_viewer.MujocoViewer(model, data)
         startHeight = 0
         maxHeight = 0
-        for i in range(1000):
+        for i in range(800):
             if viewer.is_alive:
                 if i > 1 and i%500 == 0:
                     startHeight = data.qpos[2]
@@ -276,7 +272,17 @@ def build_from_tree (root: Node):
 
 #891 -> advanced start (max limbs and segment = 4)
 #890 -> simple start (max limbs and segments = 2)
-population = Simulation(891)
-population.initialize_population()
-for _ in range(15):
-    population.run_generation()
+advance_population = Simulation(891)
+simple_population = Simulation(890)
+advance_population.initialize_population()
+simple_population.initialize_population()
+final_models = []
+
+for population in [advance_population, simple_population]:
+    for i in range(25):
+        population.run_generation()
+        if i == 24:
+            final_models += population.population[:5]
+time.sleep(15)
+for model in final_models:
+    model.evaluate_fitness()
